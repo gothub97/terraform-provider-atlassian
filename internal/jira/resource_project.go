@@ -379,7 +379,11 @@ func mapProjectAPIToState(state *ProjectResourceModel, apiResp *projectAPIRespon
 	state.Name = types.StringValue(apiResp.Name)
 	state.ProjectTypeKey = types.StringValue(apiResp.ProjectTypeKey)
 	state.LeadAccountID = types.StringValue(apiResp.Lead.AccountID)
-	state.Description = types.StringValue(apiResp.Description)
+	if apiResp.Description != "" {
+		state.Description = types.StringValue(apiResp.Description)
+	} else {
+		state.Description = types.StringNull()
+	}
 	state.AssigneeType = types.StringValue(apiResp.AssigneeType)
 	state.Self = types.StringValue(apiResp.Self)
 
