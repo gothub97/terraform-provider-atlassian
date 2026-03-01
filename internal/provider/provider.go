@@ -141,6 +141,16 @@ func (p *AtlassianProvider) Resources(_ context.Context) []func() resource.Resou
 		jira.NewIssueTypeScreenSchemeResource,
 		jira.NewWorkflowResource,
 		jira.NewWorkflowSchemeResource,
+		jira.NewGroupResource,
+		jira.NewGroupMembershipResource,
+		jira.NewProjectRoleResource,
+		jira.NewProjectRoleActorResource,
+		jira.NewPermissionSchemeResource,
+		jira.NewProjectPermissionSchemeResource,
+		jira.NewNotificationSchemeResource,
+		jira.NewProjectNotificationSchemeResource,
+		jira.NewSecuritySchemeResource,
+		jira.NewProjectSecuritySchemeResource,
 	}
 }
 
@@ -154,5 +164,11 @@ func (p *AtlassianProvider) DataSources(_ context.Context) []func() datasource.D
 		jira.NewFieldsDataSource,
 		jira.NewScreensDataSource,
 		jira.NewWorkflowsDataSource,
+		jira.NewGroupsDataSource,
+		jira.NewUsersDataSource,
+		jira.NewProjectRolesDataSource,
+		jira.NewPermissionSchemesDataSource,
+		jira.NewNotificationSchemesDataSource,
+		jira.NewSecuritySchemesDataSource,
 	}
 }
