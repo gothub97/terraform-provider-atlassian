@@ -30,6 +30,7 @@ resource "atlassian_jira_priority" "high" {
   name         = "${var.project_key} High"
   description  = "High priority for ${var.project_name}"
   status_color = "#FF5630"
+  icon_url     = "https://hubertgauthier5.atlassian.net/images/icons/priorities/highest_new.svg"
 }
 
 resource "atlassian_jira_field" "story_points" {
@@ -183,58 +184,69 @@ resource "atlassian_jira_issue_type_screen_scheme" "main" {
 # Statuses + Workflow: 4-status flow with transitions
 # -----------------------------------------------------------------------------
 
+# Standalone status resources (demonstrate the atlassian_jira_status resource).
+# These have distinct names from the workflow's inline statuses because the
+# workflow API creates its own statuses and would conflict on duplicate names.
+
 resource "atlassian_jira_status" "open" {
-  name            = "${var.project_key} Open"
-  description     = "Issue is open and ready to be worked on"
+  name            = "${var.project_key} Backlog"
+  description     = "Issue is in the backlog"
   status_category = "TODO"
   scope_type      = "GLOBAL"
 }
 
 resource "atlassian_jira_status" "in_progress" {
-  name            = "${var.project_key} In Progress"
+  name            = "${var.project_key} Active"
   description     = "Issue is actively being worked on"
   status_category = "IN_PROGRESS"
   scope_type      = "GLOBAL"
+  depends_on      = [atlassian_jira_status.open]
 }
 
 resource "atlassian_jira_status" "in_review" {
-  name            = "${var.project_key} In Review"
+  name            = "${var.project_key} Reviewing"
   description     = "Issue is under review"
   status_category = "IN_PROGRESS"
   scope_type      = "GLOBAL"
+  depends_on      = [atlassian_jira_status.in_progress]
 }
 
 resource "atlassian_jira_status" "done" {
-  name            = "${var.project_key} Done"
+  name            = "${var.project_key} Closed"
   description     = "Issue is complete"
   status_category = "DONE"
   scope_type      = "GLOBAL"
+  depends_on      = [atlassian_jira_status.in_review]
 }
+
+# Workflow with its own inline statuses (distinct from the standalone ones above).
 
 resource "atlassian_jira_workflow" "main" {
   name        = "${var.project_key} Workflow"
   description = "4-status workflow: Open → In Progress → In Review → Done"
 
+  depends_on = [atlassian_jira_status.done]
+
   status {
-    name             = atlassian_jira_status.open.name
+    name             = "${var.project_key} Open"
     status_reference = "open"
     status_category  = "TODO"
   }
 
   status {
-    name             = atlassian_jira_status.in_progress.name
+    name             = "${var.project_key} In Progress"
     status_reference = "in_progress"
     status_category  = "IN_PROGRESS"
   }
 
   status {
-    name             = atlassian_jira_status.in_review.name
+    name             = "${var.project_key} In Review"
     status_reference = "in_review"
     status_category  = "IN_PROGRESS"
   }
 
   status {
-    name             = atlassian_jira_status.done.name
+    name             = "${var.project_key} Done"
     status_reference = "done"
     status_category  = "DONE"
   }
@@ -297,6 +309,14 @@ resource "atlassian_jira_project" "main" {
   lead_account_id      = data.atlassian_jira_myself.current.account_id
   description          = "A complete Jira project fully managed by Terraform"
   assignee_type        = "PROJECT_LEAD"
+
+  # Ensure project is destroyed before governance schemes so scheme
+  # associations are removed with the project, allowing scheme deletion.
+  depends_on = [
+    atlassian_jira_permission_scheme.main,
+    atlassian_jira_notification_scheme.main,
+    atlassian_jira_security_scheme.main,
+  ]
 }
 
 # -----------------------------------------------------------------------------

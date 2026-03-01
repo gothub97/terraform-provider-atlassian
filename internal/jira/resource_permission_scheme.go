@@ -198,7 +198,7 @@ func (r *PermissionSchemeResource) Create(ctx context.Context, req resource.Crea
 		return
 	}
 
-	mapPermissionSchemeAPIToState(&plan, &apiResp)
+	mapPermissionSchemeAPIToState(&plan, &apiResp, plan.Permissions)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -208,6 +208,8 @@ func (r *PermissionSchemeResource) Read(ctx context.Context, req resource.ReadRe
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	oldPermissions := state.Permissions
 
 	var apiResp permissionSchemeAPIResponse
 	err := r.client.Get(ctx, fmt.Sprintf("/rest/api/3/permissionscheme/%s?expand=all", state.ID.ValueString()), &apiResp)
@@ -224,7 +226,7 @@ func (r *PermissionSchemeResource) Read(ctx context.Context, req resource.ReadRe
 		return
 	}
 
-	mapPermissionSchemeAPIToState(&state, &apiResp)
+	mapPermissionSchemeAPIToState(&state, &apiResp, oldPermissions)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -259,7 +261,7 @@ func (r *PermissionSchemeResource) Update(ctx context.Context, req resource.Upda
 		return
 	}
 
-	mapPermissionSchemeAPIToState(&plan, &apiResp)
+	mapPermissionSchemeAPIToState(&plan, &apiResp, plan.Permissions)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -323,7 +325,8 @@ func buildPermissionGrantRequests(grants []PermissionSchemeGrantModel) []permiss
 }
 
 // mapPermissionSchemeAPIToState maps a permission scheme API response to the Terraform state model.
-func mapPermissionSchemeAPIToState(state *PermissionSchemeResourceModel, apiResp *permissionSchemeAPIResponse) {
+// oldPermissions is the prior state ordering used to reorder API results and avoid spurious diffs.
+func mapPermissionSchemeAPIToState(state *PermissionSchemeResourceModel, apiResp *permissionSchemeAPIResponse, oldPermissions []PermissionSchemeGrantModel) {
 	state.ID = types.StringValue(fmt.Sprintf("%d", apiResp.ID))
 	state.Name = types.StringValue(apiResp.Name)
 	state.Self = types.StringValue(apiResp.Self)
@@ -357,6 +360,30 @@ func mapPermissionSchemeAPIToState(state *PermissionSchemeResourceModel, apiResp
 			}
 
 			state.Permissions = append(state.Permissions, grant)
+		}
+
+		// Reorder API results to match the existing state order to avoid spurious diffs.
+		if len(oldPermissions) > 0 {
+			ordered := make([]PermissionSchemeGrantModel, 0, len(state.Permissions))
+			used := make([]bool, len(state.Permissions))
+			for _, planned := range oldPermissions {
+				for j, api := range state.Permissions {
+					if !used[j] &&
+						api.Permission.ValueString() == planned.Permission.ValueString() &&
+						api.HolderType.ValueString() == planned.HolderType.ValueString() &&
+						api.HolderValue.ValueString() == planned.HolderValue.ValueString() {
+						ordered = append(ordered, api)
+						used[j] = true
+						break
+					}
+				}
+			}
+			for j, api := range state.Permissions {
+				if !used[j] {
+					ordered = append(ordered, api)
+				}
+			}
+			state.Permissions = ordered
 		}
 	} else {
 		state.Permissions = []PermissionSchemeGrantModel{}

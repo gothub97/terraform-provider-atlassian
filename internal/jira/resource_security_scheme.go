@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/atlassian/terraform-provider-atlassian/internal/atlassian"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -250,8 +251,8 @@ func (r *SecuritySchemeResource) Create(ctx context.Context, req resource.Create
 
 	plan.ID = types.StringValue(createResp.ID)
 
-	// Read back to populate level/member IDs
-	diags := r.readScheme(ctx, &plan)
+	// Read back to populate level/member IDs, reorder to match plan
+	diags := r.readScheme(ctx, &plan, plan.Levels)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -267,7 +268,8 @@ func (r *SecuritySchemeResource) Read(ctx context.Context, req resource.ReadRequ
 		return
 	}
 
-	diags := r.readScheme(ctx, &state)
+	oldLevels := state.Levels
+	diags := r.readScheme(ctx, &state, oldLevels)
 	if diags.HasError() {
 		for _, d := range diags {
 			if d.Summary() == notFoundSentinel {
@@ -382,8 +384,8 @@ func (r *SecuritySchemeResource) Update(ctx context.Context, req resource.Update
 		}
 	}
 
-	// Read back to populate level/member IDs
-	diags := r.readScheme(ctx, &plan)
+	// Read back to populate level/member IDs, reorder to match plan
+	diags := r.readScheme(ctx, &plan, plan.Levels)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -417,7 +419,8 @@ func (r *SecuritySchemeResource) ImportState(ctx context.Context, req resource.I
 }
 
 // readScheme reads the security scheme and its levels/members from the API.
-func (r *SecuritySchemeResource) readScheme(ctx context.Context, state *SecuritySchemeResourceModel) diag.Diagnostics {
+// oldLevels is the prior state ordering used to reorder API results and avoid spurious diffs.
+func (r *SecuritySchemeResource) readScheme(ctx context.Context, state *SecuritySchemeResourceModel, oldLevels []SecuritySchemeLevelModel) diag.Diagnostics {
 	var diags diag.Diagnostics
 	schemeID := state.ID.ValueString()
 
@@ -503,6 +506,51 @@ func (r *SecuritySchemeResource) readScheme(ctx context.Context, state *Security
 		}
 
 		state.Levels = append(state.Levels, levelModel)
+	}
+
+	// Reorder levels to match the existing state order to avoid spurious diffs.
+	if len(oldLevels) > 0 && len(state.Levels) > 0 {
+		ordered := make([]SecuritySchemeLevelModel, 0, len(state.Levels))
+		used := make([]bool, len(state.Levels))
+		for _, planned := range oldLevels {
+			for j, api := range state.Levels {
+				if !used[j] && api.Name.ValueString() == planned.Name.ValueString() {
+					// Reorder members within this level too
+					if len(planned.Members) > 0 && len(api.Members) > 0 {
+						orderedMembers := make([]SecuritySchemeMemberModel, 0, len(api.Members))
+						usedMembers := make([]bool, len(api.Members))
+						for _, pm := range planned.Members {
+							for k, am := range api.Members {
+								if !usedMembers[k] &&
+									strings.EqualFold(am.Type.ValueString(), pm.Type.ValueString()) &&
+									am.Parameter.ValueString() == pm.Parameter.ValueString() {
+									// Preserve user's casing for the type
+									am.Type = pm.Type
+									orderedMembers = append(orderedMembers, am)
+									usedMembers[k] = true
+									break
+								}
+							}
+						}
+						for k, am := range api.Members {
+							if !usedMembers[k] {
+								orderedMembers = append(orderedMembers, am)
+							}
+						}
+						api.Members = orderedMembers
+					}
+					ordered = append(ordered, api)
+					used[j] = true
+					break
+				}
+			}
+		}
+		for j, api := range state.Levels {
+			if !used[j] {
+				ordered = append(ordered, api)
+			}
+		}
+		state.Levels = ordered
 	}
 
 	return diags
