@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -107,6 +108,10 @@ func (c *Client) DeleteWithRedirect(ctx context.Context, path string) (string, e
 		location := resp.Header.Get("Location")
 		if location == "" {
 			return "", fmt.Errorf("redirect response without Location header")
+		}
+		// Strip base URL so callers get a relative path (e.g. /rest/api/3/task/123)
+		if strings.HasPrefix(location, c.BaseURL) {
+			location = strings.TrimPrefix(location, c.BaseURL)
 		}
 		return location, nil
 	}
