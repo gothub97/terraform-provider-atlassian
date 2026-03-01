@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "skills": {
+    "golang-pro": {
+      "source": "jeffallan/claude-skills",
+      "sourceType": "github",
+      "computedHash": "709f35fe79694533e7e8f1059eecb627cced758a1e31ae2d0c0c6f4bffa91277"
+    },
+    "new-terraform-provider": {
+      "source": "hashicorp/agent-skills",
+      "sourceType": "github",
+      "computedHash": "e294bd62d9710030080ccfcdef99a7a5b766166b2a4d6c760c5d63b2936fb7e9"
+    },
+    "provider-actions": {
+      "source": "hashicorp/agent-skills",
+      "sourceType": "github",
+      "computedHash": "e3852e6583ab4c2199a26793583a3463ce80d31b4b972f7855585c8885d0c0e4"
+    },
+    "provider-resources": {
+      "source": "hashicorp/agent-skills",
+      "sourceType": "github",
+      "computedHash": "97edcbb115a59d93da5ec28cb445d883307c66143b6fbc1f6f61bd4b2cfd7def"
+    },
+    "refactor-module": {
+      "source": "hashicorp/agent-skills",
+      "sourceType": "github",
+      "computedHash": "f506f95f84ff344a3e522f2e58069b632a5b3539d978f00c935ee8bab25b03f0"
+    },
+    "run-acceptance-tests": {
+      "source": "hashicorp/agent-skills",
+      "sourceType": "github",
+      "computedHash": "08e3615c03a799d81a910b04f04e6c54887411603f8e8c309a60f65681425a0c"
+    },
+    "terraform-stacks": {
+      "source": "hashicorp/agent-skills",
+      "sourceType": "github",
+      "computedHash": "c90c845f0d9b08341d6c85d6957f105e8973582870f4a6601f5366dc57d8171a"
+    }
+  }
+}

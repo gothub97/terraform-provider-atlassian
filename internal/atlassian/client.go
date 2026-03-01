@@ -45,6 +45,7 @@ func (c *Client) Get(ctx context.Context, path string, result any) error {
 	return c.doRequest(ctx, http.MethodGet, path, nil, result)
 }
 
+
 // Post performs a POST request and unmarshals the response into result.
 func (c *Client) Post(ctx context.Context, path string, body any, result any) error {
 	return c.doRequest(ctx, http.MethodPost, path, body, result)
