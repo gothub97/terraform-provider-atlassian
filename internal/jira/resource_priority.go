@@ -437,7 +437,8 @@ type prioritySchemePrioritiesResponse struct {
 
 // prioritySchemeUpdateRequest represents the PUT body for updating a priority scheme.
 type prioritySchemeUpdateRequest struct {
-	Priorities *prioritySchemeChanges `json:"priorities,omitempty"`
+	Priorities *prioritySchemeChanges  `json:"priorities,omitempty"`
+	Mappings   *prioritySchemeMappings `json:"mappings,omitempty"`
 }
 
 type prioritySchemeChanges struct {
@@ -446,6 +447,10 @@ type prioritySchemeChanges struct {
 
 type priorityIDList struct {
 	IDs []int64 `json:"ids"`
+}
+
+type prioritySchemeMappings struct {
+	In map[string]int64 `json:"in,omitempty"`
 }
 
 // removePriorityFromSchemes removes the priority from all priority schemes.
@@ -491,11 +496,24 @@ func (r *PriorityResource) removePriorityFromSchemes(ctx context.Context, priori
 			return diags
 		}
 
+		// Find a replacement priority in the scheme for the mapping
+		var replaceWithInt int64
+		for _, p := range schemePriorities.Values {
+			if p.ID != priorityID {
+				if _, err := fmt.Sscanf(p.ID, "%d", &replaceWithInt); err == nil {
+					break
+				}
+			}
+		}
+
 		updateReq := prioritySchemeUpdateRequest{
 			Priorities: &prioritySchemeChanges{
 				Remove: &priorityIDList{
 					IDs: []int64{pidInt},
 				},
+			},
+			Mappings: &prioritySchemeMappings{
+				In: map[string]int64{priorityID: replaceWithInt},
 			},
 		}
 

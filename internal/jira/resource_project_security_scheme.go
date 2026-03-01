@@ -2,6 +2,7 @@ package jira
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -37,8 +38,8 @@ type projectSecuritySchemeAssignRequest struct {
 
 // projectIssueSecuritySchemeResponse is the response from GET /rest/api/3/project/{key}/issuesecuritylevelscheme.
 type projectIssueSecuritySchemeResponse struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID   json.Number `json:"id"`
+	Name string      `json:"name"`
 }
 
 // NewProjectSecuritySchemeResource returns a new resource factory function.
@@ -121,12 +122,13 @@ func (r *ProjectSecuritySchemeResource) Read(ctx context.Context, req resource.R
 	}
 
 	// If no scheme is assigned, the ID will be empty or "0"
-	if apiResp.ID == "" || apiResp.ID == "0" {
+	idStr := apiResp.ID.String()
+	if idStr == "" || idStr == "0" {
 		resp.State.RemoveResource(ctx)
 		return
 	}
 
-	state.SchemeID = types.StringValue(apiResp.ID)
+	state.SchemeID = types.StringValue(idStr)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -146,16 +148,9 @@ func (r *ProjectSecuritySchemeResource) Update(ctx context.Context, req resource
 }
 
 func (r *ProjectSecuritySchemeResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var state ProjectSecuritySchemeResourceModel
-	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	// Remove the security scheme by assigning empty/none
-	if diags := r.assignScheme(ctx, state.ProjectKey.ValueString(), ""); diags.HasError() {
-		resp.Diagnostics.Append(diags...)
-	}
+	// The Jira Cloud API does not support disassociating an issue security
+	// scheme from a project. The association is automatically removed when the
+	// project is deleted.  Remove from Terraform state only.
 }
 
 func (r *ProjectSecuritySchemeResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
@@ -173,7 +168,7 @@ func (r *ProjectSecuritySchemeResource) ImportState(ctx context.Context, req res
 		return
 	}
 
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("scheme_id"), apiResp.ID)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("scheme_id"), apiResp.ID.String())...)
 }
 
 func (r *ProjectSecuritySchemeResource) assignScheme(ctx context.Context, projectKey, schemeID string) diag.Diagnostics {

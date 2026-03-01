@@ -329,7 +329,7 @@ func (r *ProjectResource) Delete(ctx context.Context, req resource.DeleteRequest
 		return
 	}
 
-	err := r.client.Delete(ctx, fmt.Sprintf("/rest/api/3/project/%s?enableUndo=true", state.ID.ValueString()), nil)
+	err := r.client.Delete(ctx, fmt.Sprintf("/rest/api/3/project/%s?enableUndo=false", state.ID.ValueString()), nil)
 	if err != nil {
 		if apiErr, ok := err.(*atlassian.APIError); ok && apiErr.StatusCode == http.StatusNotFound {
 			// Already deleted, nothing to do.
