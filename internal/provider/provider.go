@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/atlassian/terraform-provider-atlassian/internal/atlassian"
+	"github.com/atlassian/terraform-provider-atlassian/internal/confluence"
 	"github.com/atlassian/terraform-provider-atlassian/internal/jira"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
@@ -111,16 +112,23 @@ func (p *AtlassianProvider) Configure(ctx context.Context, req provider.Configur
 
 	client := atlassian.NewClient(url, email, apiToken)
 
-	// Validate credentials by calling GET /rest/api/3/myself
+	// Validate credentials. Prefer the Jira endpoint, but fall back to the
+	// Confluence endpoint so the provider also works on sites that have only
+	// Confluence provisioned (where the Jira API returns 404).
 	var myself map[string]any
-	if err := client.Get(ctx, "/rest/api/3/myself", &myself); err != nil {
-		resp.Diagnostics.AddError(
-			"Unable to Authenticate",
-			"The provider was unable to authenticate with the Atlassian API. "+
-				"Please verify your URL, email, and API token are correct.\n\n"+
-				"Error: "+err.Error(),
-		)
-		return
+	jiraErr := client.Get(ctx, "/rest/api/3/myself", &myself)
+	if jiraErr != nil {
+		var confluenceUser map[string]any
+		if confluenceErr := client.Get(ctx, "/wiki/rest/api/user/current", &confluenceUser); confluenceErr != nil {
+			resp.Diagnostics.AddError(
+				"Unable to Authenticate",
+				"The provider was unable to authenticate with the Atlassian API. "+
+					"Please verify your URL, email, and API token are correct.\n\n"+
+					"Jira error: "+jiraErr.Error()+"\n"+
+					"Confluence error: "+confluenceErr.Error(),
+			)
+			return
+		}
 	}
 
 	resp.DataSourceData = client
@@ -151,6 +159,9 @@ func (p *AtlassianProvider) Resources(_ context.Context) []func() resource.Resou
 		jira.NewProjectNotificationSchemeResource,
 		jira.NewSecuritySchemeResource,
 		jira.NewProjectSecuritySchemeResource,
+		confluence.NewSpaceResource,
+		confluence.NewSpacePermissionsResource,
+		confluence.NewSpaceRoleAssignmentResource,
 	}
 }
 
@@ -170,5 +181,7 @@ func (p *AtlassianProvider) DataSources(_ context.Context) []func() datasource.D
 		jira.NewPermissionSchemesDataSource,
 		jira.NewNotificationSchemesDataSource,
 		jira.NewSecuritySchemesDataSource,
+		confluence.NewSpaceDataSource,
+		confluence.NewSpaceRolesDataSource,
 	}
 }
